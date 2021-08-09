@@ -1,41 +1,43 @@
 #! /usr/bin/env python
 
 import argparse
-# import subprocess
 import os
 import sys
 import re
 
 sys.path.append('..')
-from rtemstoolkit import check
-# from rtemstoolkit import git
 from rtemstoolkit import execute
 
 
 # TODO: Find out more clang-format versions
 def get_command():
+    from rtemstoolkit import check
+
     for version in ['', '8', '9', '10', '11']:
         if check.check_exe(None, 'clang-format' + version):
             command = 'clang-format' + version
             return command
-        else:
-            print("Clang-format not found in your system")
-            sys.exit(1)
+    print("Clang-format not found in your system")
+    sys.exit(1)
 
 
 def arguments():
-    parser = argparse.ArgumentParser(description="Tool for code formatting and style checking for RTEMS")
-    parser.add_argument("-c", "--check", dest="check", help="Check for style differences and report the number of issues if found", action="store_true")
-    parser.add_argument("-r", "--reformat", dest="reformat", help="Reformat the file/directory with any style differences found", action="store_true")
-    parser.add_argument("-p", "--path", dest="path", help="The path to be checked for style issues or reformatted")
+    parser = argparse.ArgumentParser(description="Tool for code formatting and style checking \
+        for RTEMS")
+    parser.add_argument("-c", "--check", dest="check", help="Check for style differences and \
+        report the number of issues if found", action="store_true")
+    parser.add_argument("-r", "--reformat", dest="reformat", help="Reformat the file/directory \
+        with any style differences found", action="store_true")
+    parser.add_argument("-p", "--path", dest="path", help="The path to be checked for style issues \
+        or reformatted")
     parser.add_argument("--ignore", dest="ignore", help="")
-    parser.add_argument("-v", "--verbose", dest="verbose", help="A more detailed outline of the style issues", action='store_true')
-    return parser.parse_args()
+    parser.add_argument("-v", "--verbose", dest="verbose", help="A more detailed outline of the \
+        style issues", action='store_true')
+    return [parser.parse_args(), parser.print_usage()]
 
 
 
-
-def getDiff(path):
+def get_diff(path):
     diff = ""
     if os.path.isfile(path) == True:
         cmd = get_command() + " --style=file " + path + " | git diff -U0 --no-color " + path + " -"
@@ -47,15 +49,15 @@ def getDiff(path):
         onlyfiles = [f for f in os.listdir(path)]
         print(len(onlyfiles))
         for file in onlyfiles:
-            cmd = get_command() + " --style=file " + os.path.join(path, file) + " | git diff -U0 --no-color " + os.path.join(path, file) + " -"
+            cmd = get_command() + " --style=file " + os.path.join(path, file) + " | git diff -U0 \
+                --no-color " + os.path.join(path, file) + " -"
             ex = execute.capture_execution()
             dif = ex.command(command=cmd, shell=True)
-            dif = dif[2]
-            diff += dif
+            diff += dif[2]
     return diff
 
 
-def colorText(string, col, style=1):
+def color_text(string, col, style=1):
     return f"\n \033[{style};{col};{col}m {string} \033[0;0m"
 
 
@@ -66,41 +68,35 @@ def check(output):
         return False
 
 
+
 # TODO: Add functionality to ignore certain files
-def handleErrors(path, output, verbose=False,):
+def handle_errors(path, output, verbose=False,):
     if check(output) == False:
         print("Everything is clean - No style issues")
     else:
-        print(colorText("Checking for style differences...", 34, style=3))
+        print(color_text("Checking for style differences...", 34, style=3))
 
         out = output.split('\n')
         files = []
         num_diff = 0
         for line in out:
-            if verbose == True:
-                if line.startswith("+"):
-                    num_diff += 1
-                    print(colorText(line, 34))
-                else:
-                    print(line)
-            elif line.startswith("+"):
-                    num_diff += 1
+            
+            if line.startswith("+"):
+                num_diff += 1
+                if verbose == True:
+                    print(color_text(line, 34))
+            elif verbose == True:
+                print(line)
             if line.startswith("---"):
                 file = str(re.sub('[+]', '', line))
-                file = file.replace("(after formatting)", "").strip()
                 files.append(file)
                 out.remove(line)
-        if os.path.isdir(path) == True:
-            print(colorText("Files affected:", 33))
-            for file in files:
-                print(os.path.basename(file))
-
-            message = "StyleWarning: You have about a total of " + str(num_diff) + \
+        print(color_text("Files affected:", 33))
+        for file in files:
+            print(os.path.basename(file))
+        message = "StyleWarning: You have about a total of " + str(num_diff) + \
                 " style issue(s) in the " + str(len(files)) + " file(s) listed above"
-        else:
-            message = "StyleWarning: You have about a total of " + str(num_diff) + \
-            " style issue(s)"
-        print(colorText(message, 31))
+        print(color_text(message, 31))
 
 
 def reformat(path, output):
@@ -108,24 +104,25 @@ def reformat(path, output):
         cmd = get_command() + " -i -style=file " + path + " .*c .*h"
         ex = execute.capture_execution()
         ex.command(command=cmd, shell=True)
-        # os.system(cmd)
         print("Success!")
     else:
         print("Everything is clean. No style issues")
+        return 0
 
 
 def main():
     args = arguments()
-    if os.path.exists(args.path) == False:
+    if os.path.exists(args[0].path) == False:
         print("Please enter a correct path!!")
         sys.exit(1)
-    output = getDiff(args.path)
-    if args.check == True:
-        handleErrors(args.path, output, verbose=args.verbose)
-    elif args.reformat == True:
-        reformat(args.path, output)
+    output = get_diff(args[0].path)
+    if args[0].check == True:
+        handle_errors(args[0].path, output, verbose=args[0].verbose)
+    elif args[0].reformat == True:
+        reformat(args[0].path, output)
     else:
-        print("Please input the right command to either check or reformat")
+        args[1]
+        sys.exit(1)
 
 
 if __name__ == "__main__":
