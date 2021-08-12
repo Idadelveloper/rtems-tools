@@ -119,6 +119,10 @@ class repo:
             args = [args]
         ec, output = self._run(['clean'] + args, check = True)
 
+    def diff(self, args = []):
+        ec, output = self._run(['diff'] + args)
+        return output
+
     def status(self):
         _status = {}
         if path.exists(self.path):
@@ -229,3 +233,5 @@ if __name__ == '__main__':
     print('remotes:', g.remotes())
     print('email:', g.email())
     print('head:', g.head())
+    print('diff:', g.diff())
+
